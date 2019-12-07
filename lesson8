@@ -116,15 +116,6 @@ group by tbl3.id
 order by count(tbl3.id) desc limit 1;
 
 
-	select tbl.interlocuter, friendship.status_id from 
-		(select from_user_id as user, to_user_id as interlocuter from messages
-		where from_user_id=2
-		union all
-		select to_user_id as user, from_user_id as interlocuter from messages
-		where to_user_id= 2
-		) as tbl
-	join friendship
-	on friendship.status_id=2 or friendship.status_id=3;
 
 -- Подсчитать общее количество лайков, которые получили 10 самых молодых пользователей.
 
