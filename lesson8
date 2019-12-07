@@ -1,0 +1,162 @@
+use vk;
+show TABLES;
+select* from target_types;
+select* from users;
+select* from like_types;
+select* from likes;
+select* from profiles;
+DESC profiles;
+describe messages;
+desc liked_media;
+select* from media;
+select* from friendship_statuses;
+select* from friendship;
+
+DESC profiles;
+
+ALTER TABLE profiles
+  ADD CONSTRAINT profiles_user_id_fk 
+    FOREIGN KEY (user_id) REFERENCES users(id)
+      ON DELETE CASCADE,
+  ADD CONSTRAINT profiles_photo_id_fk
+    FOREIGN KEY (photo_id) REFERENCES media(id)
+      ON DELETE SET NULL;
+      
+ALTER TABLE profiles MODIFY COLUMN photo_id INT(10) UNSIGNED;
+
+describe messages;
+
+ALTER TABLE messages
+  ADD CONSTRAINT messages_from_user_id_fk 
+    FOREIGN KEY (from_user_id) REFERENCES users(id),
+  ADD CONSTRAINT messages_to_user_id_fk 
+    FOREIGN KEY (to_user_id) REFERENCES users(id);
+
+describe media_types;
+describe media;
+
+ALTER TABLE media
+	ADD constraint media_type_id_fk
+		FOREIGN KEY (media_type_id) references media_types(id);
+
+ALTER TABLE media DROP FOREIGN KEY media_type_id_fk;
+ALTER TABLE liked_media DROP COLUMN media_type_id;
+
+
+alter table posts
+	ADD CONSTRAINT posts_user_id_fk
+		foreign key (user_id) references users(id)
+         ON DELETE CASCADE,
+    ADD CONSTRAINT posts_attached_media_id_fk
+		FOREIGN KEY (attached_media_id) REFERENCES MEDIA(ID)
+        ON DELETE SET NULL;
+
+ALTER TABLE liked_media
+	add constraint liked_media_media_id_FK
+		foreign key (media_id) references media(id)
+        on delete cascade,
+	add constraint liked_media_by_user_id_FK
+		foreign key (liked_by_user_id) references users(id)
+        on delete cascade;
+
+ALTER TABLE communities_users
+	ADD CONSTRAINT communities_users_com_id_fk
+		FOREIGN KEY (community_id) references communities(id)
+        on delete cascade,
+	ADD CONSTRAINT communities_users_us_id_fk
+		FOREIGN KEY (user_id) references users(id)
+        on delete cascade;
+
+ALTER TABLE relations
+	ADD CONSTRAINT relations_user_id_fk
+		FOREIGN KEY (user_id) references users(id)
+        on delete cascade,
+	ADD CONSTRAINT relations_relative_id_fk
+		FOREIGN KEY (relative_id) references users(id)
+        on delete cascade,
+	ADD CONSTRAINT relations_status_id_fk
+		FOREIGN KEY (relation_status_id) references relation_statuses(id)
+        on delete cascade;
+
+
+ALTER TABLE friendship
+	ADD CONSTRAINT friendship_user_id_fk
+		FOREIGN KEY (user_id) references users(id)
+        on delete cascade,
+	ADD CONSTRAINT friendship_friend_id_fk
+		FOREIGN KEY (friend_id) references users(id)
+        on delete cascade,
+	ADD CONSTRAINT friendship_status_id_fk
+		FOREIGN KEY (status_id) references friendship_statuses(id)
+        on delete cascade;
+        
+        
+
+-- Из всех друзей этого пользователя найдите человека, который больше всех общался с нашим пользователем
+-- лучше придумать не смог((  
+select tbl3.id as friend_id, count(tbl3.id) from(
+	 select tbl2.main_id, tbl2.from_user , tbl2.to_user, users.id from(
+		select users.id as main_id, tbl.from_user , tbl.to_user from (
+			select  mes.from_user_id as from_user, mes.to_user_id as to_user, fr.status_id, fr.user_id, fr.friend_id 
+			from messages as mes
+			join friendship as fr
+			on  (from_user_id=32 or to_user_id=32) 
+				and 
+				(fr.status_id=2 or fr.status_id=3) -- friend or best friend
+				and (
+					(mes.from_user_id=fr.user_id and mes.to_user_id=fr.friend_id) 
+					or 
+					(mes.from_user_id= fr.friend_id and mes.to_user_id=fr.user_id))) as tbl
+		join users
+		on users.id=32) as tbl2
+	join users
+	on
+	(users.id=tbl2.from_user or users.id=tbl2.to_user) and users.id!=32) as tbl3
+group by tbl3.id
+order by count(tbl3.id) desc limit 1;
+
+
+	select tbl.interlocuter, friendship.status_id from 
+		(select from_user_id as user, to_user_id as interlocuter from messages
+		where from_user_id=2
+		union all
+		select to_user_id as user, from_user_id as interlocuter from messages
+		where to_user_id= 2
+		) as tbl
+	join friendship
+	on friendship.status_id=2 or friendship.status_id=3;
+
+-- Подсчитать общее количество лайков, которые получили 10 самых молодых пользователей.
+
+select * from liked_media;
+
+select count(us_id) from (
+	select liked_media.media_id, media.user_id as us_id, media.id 
+	from liked_media
+	join media
+	on liked_media.media_id = media.id
+	where media.user_id in (select * from (
+		select profiles.user_id from profiles order by birthday desc limit 10 
+		) as a))as b;
+
+-- Определить кто больше поставил лайков (всего) - мужчины или женщины?
+select a.sex, count(a.sex) as count from (
+	select liked_media.liked_by_user_id, profiles.user_id, profiles.sex as sex
+	from liked_media
+	join profiles
+	on liked_media.liked_by_user_id=profiles.user_id) as a
+group by a.sex
+order by count desc limit 1;
+
+-- Найти 10 пользователей, которые проявляют наименьшую активность в использовании социальной сети.
+-- не появилось идеи((
+ select user, count(user) from
+	 (select from_user_id as user from messages
+	 union all
+	 select to_user_id as user from messages
+	 union all 
+	 select liked_by_user_id as user from liked_media 
+	 union all
+	 select user_id as user from media
+	 ) as b
+ group by user order by count(user) limit 10;
