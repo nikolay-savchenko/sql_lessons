@@ -1,1 +1,37 @@
-заглушка
+use vk;
+
+-- Получить список пользователей в заданном диапазоне возрастов заданного пола.
+DESC profiles;
+EXPLAIN SELECT user_id FROM profiles WHERE sex='f' AND birthday > '2000-01-01' AND birthday < '2019-01-12';
+CREATE INDEX profiles_sex_profiles_birthday_idx ON profiles(sex, birthday);
+
+-- Получить список пользователей из заданного города.
+DESC profiles;
+EXPLAIN SELECT user_id FROM profiles WHERE hometown = 'Moscow';
+CREATE INDEX profiles_hometown_idx ON profiles(hometown);
+
+-- Получить список пользователей конкретного сообщества.
+DESC communities_users;
+EXPLAIN SELECT user_id FROM communities_users WHERE community_id=1;
+CREATE INDEX communities_users_community_id_idx ON communities_users(community_id);
+
+
+
+SELECT DISTINCT
+	  com.name,
+      AVG(*) OVER w 'среднее количество пользователей в группах',
+      FIRST(prf.user_id) OVER bdy 'самый молодой пользователь в группе',
+      FIRST(prf.user_id) OVER bdo 'самый пожилой пользователь в группе',
+      COUNT(DISTINCT *) OVER w 'общее количество пользователей в группе',
+      COUNT(DISTINCT prf.user_id) OVER w 'общее количество пользователей в группе',
+      COUNT(DISTINCT prf.user_id) OVER() 'общее количество пользователей в системе'	
+FROM vk.communities_users com_u
+LEFT JOIN communities com on com.community_id = com_u.community_id 
+LEFT JOIN profiles prf on prf.user_id_id = com_u.user_id
+WINDOW w AS (PARTITION BY prf.user_id)
+WINDOW bdy AS (PARTITION BY LEFT(prf.birthday, 4) ORDER BY prf.birthday)
+WINDOW bdo AS (PARTITION BY LEFT(prf.birthday, 4) ORDER BY prf.birthday DESC);
+
+
+
+
